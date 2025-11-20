@@ -58,7 +58,7 @@ void parse_string(const char *s, int *i, char *out)
     *i = pos;
 }
 
-
+char parse_board(const char *s) {}
 
 
 
@@ -70,7 +70,6 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
     }
 
     int w, h, tempo;
-    char pacman_file[MAX_FILENAME];
     char ghosts_files[MAX_GHOSTS][MAX_FILENAME];
     int ghost_count = 0;
     char line[256];
@@ -83,28 +82,19 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
         if (line[0] == '#')
             continue;
         
-        if (strncmp(line, "DIM", 3) == 0) {
-            i = 3;
-            w = parse_int(line, &i);
-            h = parse_int(line, &i);
+        else if (strncmp(line, "DIM", 3) == 0) {
+            sscanf(line + 3, "%d %d", board->width, board->height);
         }
-        if (strncmp(line, "TEMPO", 5) == 0) {
-            i = 5;
-            tempo = parse_int(line, &i);
+        
+        else if (strncmp(line, "TEMPO", 5) == 0) {
+            sscanf(line + 5, "%d", board->tempo);
         }
-        if (strncmp(line, "PAC", 3) == 0) {
-            i = 3;
-            while (line[i] != '\n') {
-                parse_string(line, &i, board->pacman_file);
-            }
+        else if (strncmp(line, "PAC", 3) == 0) {
+           sscanf(line + 3, "%s", board->pacman_file);
         }
-        if (strncmp(line, "MON", 3) == 0) {
-            i = 3;
-            while (line[i] != '\n' && line[i] != '\0') {
-            parse_string(line, &i, board->ghosts_files[ghost_count]);
-            ghost_count++;
+        else if (strncmp(line, "MON", 3) == 0) {
+           char *mon_files = strtok(line, " ");
         }
-        } 
     }
 
 
