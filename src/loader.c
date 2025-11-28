@@ -3,104 +3,124 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <stdlib.h>
 
-
-
-
-ssize_t read_line(int fd, char *buf, size_t max) {
-    size_t pos = 0;
-    char c;
-
-    while (pos < max - 1) {
-        ssize_t n = read(fd, &c, 1);
-        if ( n <= 0) break; //EOF or error
-        buf[pos++] = c;
-        if (c == '\n') break ; // end of line
-    }
-
-    buf[pos] = '\0';
-    return pos;
-}
-
-int parse_int(const char *s, int *i) {
-    int n = 0;
-    int pos = *i;
-
-    while (s[pos] == ' ') pos++;
-
-    while (s[pos] >= '0' && s[pos] <= '9') {
-        n = n * 10 + (s[pos] - '0'); // *10 in case the number has more than 1 digit
-                                     // subtract by '0' because of ASCII
-        pos++;
-    }
-    *i = pos;
-    return n;
-}
-
-void parse_string(const char *s, int *i, char *out)
-{
-    int pos = *i;
-
-    while (s[pos] == ' ')
-        pos++;
-
-    int k = 0;
-
-    while (s[pos] != '\n' && s[pos] != '\0') {
-        out[k++] = s[pos++];
-    }
-
-    out[k] = '\0';
-
-    if (s[pos] == '\n')
-        pos++;
-
-    *i = pos;
-}
-
-char parse_board(const char *s) {}
 
 
 
 int load_level_from_file(board_t *board, const char *level_path, int accumulated_points) {
+
+    //Open file
     int fd = open(level_path, O_RDONLY);
     if (fd == -1) {
         perror("open");
         return 1;
     }
 
+    // Get all of the file's statistics (to find its size)
+    struct stat file_stat; 
+    if (fstat(fd, &file_stat) == -1) {
+        close(fd);
+        return 1;
+    }
+    // Get file's size
+    off_t file_size = file_stat.st_size;
+
+    // Alocate size (in heap) for the buffer to avoid stack overflows
+    char *buffer = malloc(file_size + 1);
+    if (buffer == NULL) {
+        close(fd);
+        return 1;
+    }
+
+    // Read the file
+    ssize_t bytes_read = read(fd, buffer, file_size);
+    if (bytes_read != file_size) {
+        // If it's not the same size, something went wrong reading.
+        free(buffer);
+        close(fd);
+        return 1;
+    }
+
+    // Null terminate the buffer to treat it like a string.
+    buffer[file_size] = '\0';
+
+    // Close the file as we don't need it anymore.
+    close(fd);
+
+    char *line = strtok(buffer, "\n");
+    /* GUSTAVO: For you my g
+    O strtok divide o buffer em tokens, neste caso até encontrar o \n,
+    quando o encontrar, devolve tudo para tras dele e fica com um ponteiro '\0'
+    a apontar para onde parou, por isso é que quando fazemos strtok(NULL, ...) 
+    ele lê onde "estava".
+    */
+
     int w, h, tempo;
+    char pac_file[MAX_FILENAME];
     char ghosts_files[MAX_GHOSTS][MAX_FILENAME];
     int ghost_count = 0;
-    char line[256];
-    int nbytes;
+    int map_row = 0;
 
-    while ((read_line(fd, line, sizeof(line))) > 0 ) {
+    
+
+    while (line != NULL) {
 
         int i = 0;
         
-        if (line[0] == '#')
+        if (line[0] == '#' || line[0] == '\n') {
+            // Go to next line
+            line = strtok(NULL, "\n");
             continue;
-        
+        }
+        // Read Dimensions
         else if (strncmp(line, "DIM", 3) == 0) {
-            sscanf(line + 3, "%d %d", board->width, board->height);
+            if (sscanf(line + 3, "%d %d", &w, &h) == 2); { 
+                board->width = w;
+                board->height = h;
+            }
         }
-        
+        // Read Tempo
         else if (strncmp(line, "TEMPO", 5) == 0) {
-            sscanf(line + 5, "%d", board->tempo);
+            if (sscanf(line + 5, "%d", &tempo) == 1) {
+                board->tempo = tempo;
+            }
         }
+        // Read Pacman file
         else if (strncmp(line, "PAC", 3) == 0) {
-           sscanf(line + 3, "%s", board->pacman_file);
+           sscanf(line + 3, "%255s", pac_file);
+           strcpy(board->pacman_file, pac_file);
         }
         else if (strncmp(line, "MON", 3) == 0) {
-           char *mon_files = strtok(line, " ");
+           char *ptr = line + 3; // Skip MON
+           int offset;
+           while (sscanf(ptr, "%s%n", &ghosts_files[ghost_count], &offset) == 1) {
+                ptr += offset;
+                ghost_count++;
+           }
+        } else {
+            // If it's not a keyword, it's the board
+            for (int x = 0; x < w && line[x] != '\0'; x++) {
+                if (line[x] == "X") {
+                    board->board[map_row * board->width + x].content = 'W';
+                }
+                else if (line[x] == "o") {
+                    board->board[map_row * board->width + x].content= ' ';
+                    board->board[map_row * board->width + x].has_dot = 1;
+                }
+                else if (line[x] == "@") {
+                    board->board[map_row * board->width + x].content = ' ';
+                    board->board[map_row * board->width + x].has_portal = 1;
+                }
+                
+            }
+            map_row++;
+            
         }
     }
 
 
-    board->height = h;
-    board->width = w;
-    board->tempo = tempo;
+
 
     board->n_ghosts = ghost_count;
     board->n_pacmans = 1;
@@ -113,7 +133,7 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
 
     load_ghosts_from_file(&board);
 
-    close(fd);
+    free(buffer);
     return 0;
 }
 
