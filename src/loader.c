@@ -5,7 +5,214 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <dirent.h>
+#include "loader.h"
 
+/**
+ *  ******* TALVEZ COLOCAR EM UM FICHEIRO UTILIDADES ********
+ * Função de comparação para qsort. 
+ * Ordena os nomes de ficheiro .lvl pela ordem numérica do seu prefixo (ex: '1' em '1.lvl').
+ */
+int compare_level_numbers(const void *a, const void *b) {
+    // 1. Converter os ponteiros genéricos (void*) para char**
+    const char *name_a = *(const char **)a;
+    const char *name_b = *(const char **)b;
+
+    int num_a, num_b;
+
+    // 2. Extrair o número inicial de cada string.
+    if (sscanf(name_a, "%d", &num_a) != 1) {
+        // Falha na leitura do número (isto não deve acontecer se os nomes forem válidos)
+        return 0; 
+    }
+    if (sscanf(name_b, "%d", &num_b) != 1) {
+        return 0;
+    }
+    // Se for negativa, 'b' é maior e se for positiva, 'a' é maior.
+    return num_a - num_b;
+}
+
+//Função privada para inicializar a DynamicList
+static DynamicList *init_dynamic_list(int capacity) {
+    DynamicList *list = malloc(sizeof(DynamicList));
+    if (list == NULL) {
+        return NULL;
+    }
+
+    list->max_capacity = capacity;
+    list->size = 0;
+    
+    // Alocar o array de ponteiros char*
+    list->array = malloc(list->max_capacity * sizeof(char *));
+    if (list->array == NULL) {
+        free(list); // Liberta a estrutura se o array falhar
+        return NULL;
+    }
+    return list;
+}
+
+//Função privada para inicializar o BehaviorMAP
+static BehaviorMAP *init_behavior_map(int capacity) {
+    BehaviorMAP *map = malloc(sizeof(BehaviorMAP));
+    if (map == NULL) {
+        return NULL;
+    }
+
+    map->max_capacity = capacity;
+    map->size = 0;
+
+    // Alocar o array de estruturas BehaviorEntry
+    map->array = malloc(map->max_capacity * sizeof(BehaviorEntry));
+    if (map->array == NULL) {
+        free(map); // Liberta a estrutura se o array falhar
+        return NULL;
+    }
+    return map;
+}
+
+// Função auxiliar para a limpeza completa, usada se ocorrer um erro no loop
+void cleanup_resources(DIR *dir, GameResources *res) {
+    if (dir != NULL) closedir(dir);
+    if (res != NULL) {
+
+        // Limpeza da DynamicList
+        if (res->levels != NULL) {
+            // Se houver nomes de ficheiro alocados, tem de os libertar individualmente
+            for (int i = 0; i < res->levels->size; i++) {
+                free(res->levels->array[i]);
+            }
+            free(res->levels->array);
+            free(res->levels);
+        }
+
+        // Limpeza do BehaviorMap
+        if (res->behaviors != NULL) {
+            for (int i = 0; i < res->behaviors->size; i++) {
+                // Liberta as strings da Chave do mapa (Deep Copy)
+                free(res->behaviors->array[i].file_name);
+            }
+            free(res->behaviors->array); // Liberta o array entries de BehaviorEntry
+            free(res->behaviors);        // Liberta a estrutura BehaviorMap
+        }
+        free(res);
+    }
+}
+
+GameResources *load_directory(const char *name){
+
+    //abrir diretório
+    DIR *directory = opendir(name);
+    if(directory ==NULL){
+        perror("opendir");
+        return NULL;
+    }
+
+    //ler entradas do diretório
+    struct dirent *entrada;
+
+    //inicializar estrutura para guardar recursos do jogo
+    GameResources *resources = malloc(sizeof(GameResources));
+    if(resources == NULL){
+        closedir(directory);
+        return NULL;
+    }
+
+    //iniciallizar listas dentro da estrutura, usando funçao privada
+    resources->levels = init_dynamic_list(10);
+    if(resources->levels == NULL){
+        free(resources->levels);
+        free(resources);
+        closedir(directory);
+        return NULL;
+    }
+    DynamicList *files = resources->levels;
+
+
+    //inicializar mapa de behaviors, usando função privada
+    resources->behaviors = init_behavior_map(5);
+    if(resources->behaviors == NULL){
+        cleanup_resources(directory, resources);
+        return NULL;
+    }
+    BehaviorMAP *map = resources->behaviors;
+   
+
+    while((entrada = readdir(directory)) != NULL){
+
+        if(strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0){
+            continue;
+        }
+
+        const char *file_name = entrada->d_name;
+        int len = strlen(file_name);
+
+        //verificar se o ficheiro é .lvl
+        if(len > 4 && strcmp(file_name + (len -4), ".lvl") == 0){
+
+            //realocar memoria se necessário
+            if(files->size >= files->max_capacity){
+                files->max_capacity *= 2;
+                //usar o temporary_array vai garantir que não perdemos o ponteiro original em caso de falha
+                //assim evitamos a perda de dados e potenciais memory leaks
+                char **temporary_array = realloc(files->array, files->max_capacity * sizeof(char*));
+                if(temporary_array == NULL){
+                    cleanup_resources(directory, resources);
+                    return NULL;
+                }
+                //depois de garantir que a realocação foi bem sucedida, atualizar o ponteiro
+                files->array = temporary_array;
+            }
+
+            char *new_name = malloc(len+1);
+            // temos que fazer a limpeza de tudo, pq não podemos retornar o resultado incompleto
+            if(new_name == NULL){
+                cleanup_resources(directory, resources);
+                return NULL;
+            }
+            strcpy(new_name, file_name);
+
+
+            //adicionar o nome do ficheiro à lista de
+            files->array[files->size] = new_name;
+            files->size++;
+            
+            //verificar se o ficheiro é .p ou .m
+        }else if(len > 2 && (strcmp(file_name +(len-2), ".p")==0 || strcmp(file_name +(len-2), ".m")== 0)){
+            // verificar se é necessário realocar memória
+            if(map->size >= map->max_capacity){
+                map->max_capacity *=2;
+                // realloc seguro (variável temporária)
+                BehaviorEntry *temporary_array = realloc (map->array, map->max_capacity * sizeof(BehaviorEntry));
+                if(temporary_array == NULL){
+                    cleanup_resources(directory, resources);
+                    return NULL;
+                }
+                map->array = temporary_array;
+            }
+
+            //criar cópia do nome do ficheiro
+            char *new_behavior_name = malloc(len +1);
+            if(new_behavior_name == NULL){
+                cleanup_resources(directory, resources);
+                return NULL;    
+            }
+            
+            strcpy(new_behavior_name, file_name);
+            //adicionar o nome do ficheiro à lista de behaviors
+            map->array[map->size].file_name = new_behavior_name;
+
+            map->size++;
+
+        }
+    }
+
+    //ordenar a lista de níveis numericamente 1.lvl, 2.lvl, 3.lvl , etc
+    qsort(files->array, files->size, sizeof(char *), compare_level_numbers);  
+
+    closedir(directory);
+
+    return resources;
+}
 
 char *read_into_buffer(int fd) {
     // Get all of the file's statistics (to find its size)
@@ -195,4 +402,6 @@ int load_pacman_from_file(board_t *board, int accumulated_points) {
 
 } 
 
-int load_ghosts_from_file(board_t *board) {}
+int load_ghosts_from_file(board_t *board) {
+    
+}
