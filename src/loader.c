@@ -336,13 +336,49 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
 
 
 int load_ghosts_from_file(board_t *board, const char* directory_path) {
-    if (board->n_ghosts == 0) {
-        load_ghost(board);
-    }
-    else {
-        int fd= open(directory_path, O_RDONLY);
+
+    for(int i = 0; i < board->n_ghosts; i++){
+        char full_path[512];
+        snprintf(full_path, sizeof(full_path), "%s/%s", directory_path, board->ghosts_files[i]);
+        int fd = open(full_path, O_RDONLY);
+        if(fd == -1){
+
+            return 1;
+        }
+
+        // Read file into buffer
+        char *buffer = read_into_buffer(fd);
+
+        //close the file
         close(fd);
+
+        if(buffer == NULL){
+            return 1;
+        }
+
+        char *line = strtok(buffer, "\n");
+
+        ghost_t *ghost = &board->ghosts[i];
+
+        while(line != NULL){
+            if(line[0] == '#' || line[0] == '\n'){
+
+            }else if(strncmp(line, "PASSO", 5) == 0){
+                sscanf(line + 5, "%d", &ghost->passo);
+
+            }else if(strncmp(line, "POS", 3) == 0){
+                sscanf(line + 3, "%d %d", &ghost->pos_x, &ghost->pos_y);
+            }
+            line = strtok(NULL, "\n");
+        }
+
+        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+
+        free(buffer);
+
     }
+
+
     return 0;
 }
 
@@ -461,9 +497,10 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         }
     }
 
-    load_ghost(board);
-
-    //load_ghosts_from_file(board);
+    if(load_ghosts_from_file(board, level_path) != 0){
+        free(buffer);
+        return 1;
+    }
 
     free(buffer);
     return 0;
