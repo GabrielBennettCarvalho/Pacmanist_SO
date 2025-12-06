@@ -321,6 +321,8 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
         char *line = strtok(buffer, "\n");
 
         ghost_t *ghost = &board->ghosts[i];
+        ghost->n_moves = 0;
+        ghost->current_move = 0;
 
         while(line != NULL){
             if(line[0] == '#' || line[0] == '\n'){
@@ -330,17 +332,43 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
 
             }else if(strncmp(line, "POS", 3) == 0){
                 sscanf(line + 3, "%d %d", &ghost->pos_x, &ghost->pos_y);
+            }else{
+                // Read moves
+                if(ghost->n_moves >= MAX_MOVES){
+                    break;     
+                }
+
+                char cmd = line[0];
+                int duration = 1;
+
+                if(line[0] == 'T'){
+
+                    sscanf(line + 1, "%d", &duration);
+
+                }
+
+                ghost->moves[ghost->n_moves].command = cmd;
+                ghost->moves[ghost->n_moves].turns = duration;
+                ghost->moves[ghost->n_moves].turns_left = duration;
+
+                ghost->n_moves++;
             }
             line = strtok(NULL, "\n");
         }
 
-        board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
 
+        if(
+            ghost->pos_x >= 0 && ghost->pos_x < board->width &&
+            ghost->pos_y >= 0 && ghost->pos_y < board->height
+        ){
+            board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
+        }else{
+            // Invalid position
+            free(buffer);
+            return 1;
+        }
         free(buffer);
-
     }
-
-
     return 0;
 }
 
