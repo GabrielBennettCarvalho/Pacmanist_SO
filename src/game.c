@@ -94,14 +94,21 @@ int main(int argc, char** argv) {
     if (argc != 2) {
         printf("Usage: %s <level_directory>\n", argv[0]);
         scanf("%255s", path);
+    } else {
+        // Se argc == 2, TEMOS de copiar o argv[1] para a variável path
+        strcpy(path, argv[1]); 
     }
 
 
     GameResources *resources = load_directory(path);
 
+    
     if (resources == NULL) {
+        fprintf(stderr, "Error: load_directory returned NULL.\n");
         return 1;
     }
+
+
 
     // Random seed for any random movements
     srand((unsigned int)time(NULL));
@@ -125,8 +132,10 @@ int main(int argc, char** argv) {
 
         // Build the full path
         snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, resources->levels->array[current_lvl_idx]);
+        // Write the number of the level on screen
+        sprintf(game_board.level_name, "LEVEL %d", current_lvl_idx + 1);
 
-        if (load_level_from_file(&game_board, level_full_path, accumulated_points) != 0) {
+        if (load_level_from_file(&game_board, level_full_path, accumulated_points, path) != 0) {
             //error
             fprintf(stderr, "Error reading level %s\n", level_full_path);
             break;
@@ -206,10 +215,10 @@ int main(int argc, char** argv) {
 
             accumulated_points = game_board.pacmans[0].points;      
         }
+        
         print_board(&game_board);
         unload_level(&game_board);
     }    
-
     terminal_cleanup();
 
     cleanup_resources(resources);

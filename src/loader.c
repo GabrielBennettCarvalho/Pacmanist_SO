@@ -105,7 +105,7 @@ GameResources *load_directory(const char *name){
         perror("opendir");
         return NULL;
     }
-
+    
     //ler entradas do diretório
     struct dirent *entrada;
 
@@ -250,6 +250,7 @@ char *read_into_buffer(int fd) {
 
 int load_pacman_from_file(board_t *board, int accumulated_points, const char* directory_path) {
 
+
     // Build the full path
     char full_path[512];
     snprintf(full_path, sizeof(full_path), "%s/%s", directory_path, board->pacman_file);
@@ -272,6 +273,11 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
 
     pacman_t *pacman = board->pacmans;
 
+
+    pacman->n_moves = 0;
+    pacman->current_move = 0;
+
+
     while (line != NULL) {
         if (line[0] == '#' || line[0] == '\n') {
             // Do nothing, let it reach the bottom to get to the next line
@@ -281,12 +287,44 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
         }
         else if (strncmp(line, "POS", 3) == 0) {
             sscanf(line + 3, "%d %d", &pacman->pos_x, &pacman->pos_y);
+
+            // If it's anything else, it's the controls.
+        } else {
+
+            if (pacman->n_moves >= MAX_MOVES) {
+            break; 
+        }
+
+
+
+            char cmd = line[0];
+            int duration = 1;
+
+            if (line[0] == 'T') {
+                sscanf(line + 1, "%d", &duration);
+
+            }
+
+            pacman->moves[pacman->n_moves].command = cmd;
+            pacman->moves[pacman->n_moves].turns = duration;
+
+            pacman->moves[pacman->n_moves].turns_left = duration;
+
+            pacman->n_moves++;
+
         }
         line = strtok(NULL, "\n");
     }
     
-    board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
-
+    if (pacman->pos_x >= 0 && pacman->pos_x < board->width &&
+        pacman->pos_y >= 0 && pacman->pos_y < board->height) {
+        
+        board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
+    } else {
+        free(buffer);
+        return 1;
+    }
+    
     pacman->points = accumulated_points;
     pacman->alive = 1;
 
@@ -297,14 +335,21 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
 } 
 
 
-/*int load_ghosts_from_file(board_t *board, const char* directory_path) {
-    
-}*/
+int load_ghosts_from_file(board_t *board, const char* directory_path) {
+    if (board->n_ghosts == 0) {
+        load_ghost(board);
+    }
+    else {
+        int fd= open(directory_path, O_RDONLY);
+        close(fd);
+    }
+    return 0;
+}
 
-int load_level_from_file(board_t *board, const char *level_path, int accumulated_points) {
+int load_level_from_file(board_t *board, const char *full_level_path, int accumulated_points, const char *base_path) {
 
     //Open file
-    int fd = open(level_path, O_RDONLY);
+    int fd = open(full_level_path, O_RDONLY);
     if (fd == -1) {
         perror("open");
         return 1;
@@ -321,12 +366,6 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
 
 
     char *line = strtok(buffer, "\n");
-    /* GUSTAVO: For you my g
-    O strtok divide o buffer em tokens, neste caso até encontrar o \n,
-    quando o encontrar, devolve tudo para tras dele e fica com um ponteiro '\0'
-    a apontar para onde parou, por isso é que quando fazemos strtok(NULL, ...) 
-    ele lê onde "estava".
-    */
 
     int w, h, tempo;
     int map_row = 0;
@@ -334,6 +373,12 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
     // Safety initializing
     board->n_ghosts = 0;
     board->board = NULL;
+
+    // We set the first character to \0. If the "PAC" line is never found, 
+    // this string remains empty, signaling "User Control".
+    memset(board->pacman_file, 0, sizeof(board->pacman_file));
+
+
 
     while (line != NULL) {        
         if (line[0] == '#' || line[0] == '\n') {
@@ -398,14 +443,25 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
 
     board->n_pacmans = 1;
 
+    // TEMPORARY.
+    board->n_ghosts = 2;
+
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
-    if (load_pacman_from_file(board, accumulated_points, level_path) != 0) {
-        // Error handling
-        free(buffer);
-        return 1;
+
+    if (board->pacman_file[0] == '\0') {
+        // If there's no pacman file, the user controls it.
+        load_pacman(board, accumulated_points);
+        
+    } else {
+        if (load_pacman_from_file(board, accumulated_points, base_path) != 0) {
+            free(buffer);
+            return 1;
+        }
     }
+
+    load_ghost(board);
 
     //load_ghosts_from_file(board);
 
