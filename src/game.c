@@ -1,16 +1,19 @@
 #include "board.h"
 #include "display.h"
+#include "loader.h"
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <string.h>
+#include <dirent.h>
+
 
 #define CONTINUE_PLAY 0
 #define NEXT_LEVEL 1
 #define QUIT_GAME 2
 #define LOAD_BACKUP 3
 #define CREATE_BACKUP 4
-#define EXIT_RELOAD 42
 
 void screen_refresh(board_t * game_board, int mode) {
     debug("REFRESH\n");
@@ -85,9 +88,19 @@ int play_board(board_t * game_board, bool am_i_child) {
 }
 
 int main(int argc, char** argv) {
+
+    char path[256];
+
     if (argc != 2) {
         printf("Usage: %s <level_directory>\n", argv[0]);
-        // TODO receive inputs
+        scanf("%255s", path);
+    }
+
+
+    GameResources *resources = load_directory(path);
+
+    if (resources == NULL) {
+        return 1;
     }
 
     // Random seed for any random movements
@@ -97,14 +110,28 @@ int main(int argc, char** argv) {
 
     terminal_init();
     
+    int current_lvl_idx = 0;
     int accumulated_points = 0;
     bool end_game = false;
     board_t game_board;
     int status;
     bool am_i_child = false;
 
-    while (!end_game) {
-        load_level(&game_board, accumulated_points);
+    while (current_lvl_idx < resources->levels->size && !end_game) {
+        //load_level(&game_board, accumulated_points);
+
+
+        char level_full_path[512];
+
+        // Build the full path
+        snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, resources->levels->array[current_lvl_idx]);
+
+        if (load_level_from_file(&game_board, level_full_path, accumulated_points) != 0) {
+            //error
+            fprintf(stderr, "Error reading level %s\n", level_full_path);
+            break;
+        }
+
         draw_board(&game_board, DRAW_MENU);
         refresh_screen();
 
@@ -156,6 +183,7 @@ int main(int argc, char** argv) {
             if(result == NEXT_LEVEL) {
                 screen_refresh(&game_board, DRAW_WIN);
                 sleep_ms(game_board.tempo);
+                current_lvl_idx++;
                 break;
             }
 
@@ -184,7 +212,10 @@ int main(int argc, char** argv) {
 
     terminal_cleanup();
 
+    cleanup_resources(resources);
+
     close_debug_file();
+    
 
     return 0;
 }
