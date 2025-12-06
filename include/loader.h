@@ -2,6 +2,7 @@
 #define LOADER_H
 
 #include <board.h>
+#include <dirent.h>
 
 // Not sure if we need to create 2 whole new files for this.
 
@@ -41,6 +42,8 @@ typedef struct{
     BehaviorMAP *behaviors;
 }GameResources;
 
+
+void cleanup_resources(GameResources *res);
 int load_level_from_file(board_t *board, const char *level_path, int accumulated_points);
 GameResources *load_directory(const char *name);
 

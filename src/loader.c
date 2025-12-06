@@ -71,8 +71,7 @@ static BehaviorMAP *init_behavior_map(int capacity) {
 }
 
 // Função auxiliar para a limpeza completa, usada se ocorrer um erro no loop
-void cleanup_resources(DIR *dir, GameResources *res) {
-    if (dir != NULL) closedir(dir);
+void cleanup_resources(GameResources *res) {
     if (res != NULL) {
 
         // Limpeza da DynamicList
@@ -102,7 +101,7 @@ GameResources *load_directory(const char *name){
 
     //abrir diretório
     DIR *directory = opendir(name);
-    if(directory ==NULL){
+    if(directory == NULL){
         perror("opendir");
         return NULL;
     }
@@ -131,7 +130,8 @@ GameResources *load_directory(const char *name){
     //inicializar mapa de behaviors, usando função privada
     resources->behaviors = init_behavior_map(5);
     if(resources->behaviors == NULL){
-        cleanup_resources(directory, resources);
+        cleanup_resources(resources);
+        closedir(directory);
         return NULL;
     }
     BehaviorMAP *map = resources->behaviors;
@@ -156,7 +156,8 @@ GameResources *load_directory(const char *name){
                 //assim evitamos a perda de dados e potenciais memory leaks
                 char **temporary_array = realloc(files->array, files->max_capacity * sizeof(char*));
                 if(temporary_array == NULL){
-                    cleanup_resources(directory, resources);
+                    cleanup_resources(resources);
+                    closedir(directory);
                     return NULL;
                 }
                 //depois de garantir que a realocação foi bem sucedida, atualizar o ponteiro
@@ -166,7 +167,8 @@ GameResources *load_directory(const char *name){
             char *new_name = malloc(len+1);
             // temos que fazer a limpeza de tudo, pq não podemos retornar o resultado incompleto
             if(new_name == NULL){
-                cleanup_resources(directory, resources);
+                cleanup_resources(resources);
+                closedir(directory);
                 return NULL;
             }
             strcpy(new_name, file_name);
@@ -184,7 +186,8 @@ GameResources *load_directory(const char *name){
                 // realloc seguro (variável temporária)
                 BehaviorEntry *temporary_array = realloc (map->array, map->max_capacity * sizeof(BehaviorEntry));
                 if(temporary_array == NULL){
-                    cleanup_resources(directory, resources);
+                    cleanup_resources(resources);
+                    closedir(directory);
                     return NULL;
                 }
                 map->array = temporary_array;
@@ -193,7 +196,8 @@ GameResources *load_directory(const char *name){
             //criar cópia do nome do ficheiro
             char *new_behavior_name = malloc(len +1);
             if(new_behavior_name == NULL){
-                cleanup_resources(directory, resources);
+                cleanup_resources(resources);
+                closedir(directory);
                 return NULL;    
             }
             
@@ -242,6 +246,60 @@ char *read_into_buffer(int fd) {
 
     return buffer;
 }
+
+
+int load_pacman_from_file(board_t *board, int accumulated_points, const char* directory_path) {
+
+    // Build the full path
+    char full_path[512];
+    snprintf(full_path, sizeof(full_path), "%s/%s", directory_path, board->pacman_file);
+    int fd = open(full_path, O_RDONLY);
+    if (fd == -1) {
+       
+        return 1;
+    }
+    // Read file into buffer
+    char *buffer = read_into_buffer(fd);
+
+    close(fd);
+
+    if (buffer == NULL) {
+        return 1;
+    }
+
+    // Get first line
+    char *line = strtok(buffer, "\n");
+
+    pacman_t *pacman = board->pacmans;
+
+    while (line != NULL) {
+        if (line[0] == '#' || line[0] == '\n') {
+            // Do nothing, let it reach the bottom to get to the next line
+        }
+        else if (strncmp(line, "PASSO", 5) == 0) {
+            sscanf(line + 5, "%d", &pacman->passo);
+        }
+        else if (strncmp(line, "POS", 3) == 0) {
+            sscanf(line + 3, "%d %d", &pacman->pos_x, &pacman->pos_y);
+        }
+        line = strtok(NULL, "\n");
+    }
+    
+    board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
+
+    pacman->points = accumulated_points;
+    pacman->alive = 1;
+
+    free(buffer);
+
+    return 0;
+
+} 
+
+
+/*int load_ghosts_from_file(board_t *board, const char* directory_path) {
+    
+}*/
 
 int load_level_from_file(board_t *board, const char *level_path, int accumulated_points) {
 
@@ -343,65 +401,15 @@ int load_level_from_file(board_t *board, const char *level_path, int accumulated
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
-    if (load_pacman_from_file(board, accumulated_points) != 0) {
+    if (load_pacman_from_file(board, accumulated_points, level_path) != 0) {
         // Error handling
         free(buffer);
         return 1;
     }
 
-    load_ghosts_from_file(board);
+    //load_ghosts_from_file(board);
 
     free(buffer);
     return 0;
 }
 
-
-int load_pacman_from_file(board_t *board, int accumulated_points) {
-    // Open file
-    char *pac_file_name = board->pacman_file;
-    int fd = open(pac_file_name, O_RDONLY);
-    if (fd == -1) {
-       
-        return 1;
-    }
-    // Read file into buffer
-    char *buffer = read_into_buffer(fd);
-
-    close(fd);
-
-    if (buffer == NULL) {
-        return 1;
-    }
-
-    // Get first line
-    char *line = strtok(buffer, "\n");
-
-    pacman_t *pacman = board->pacmans;
-
-    while (line != NULL) {
-        if (line[0] == '#' || line[0] == '\n') {
-            // Do nothing, let it reach the bottom to get to the next line
-        }
-        else if (strncmp(line, "PASSO", 5) == 0) {
-            sscanf(line + 5, "%d", &pacman->passo);
-        }
-        else if (strncmp(line, "POS", 3) == 0) {
-            sscanf(line + 3, "%d %d", &pacman->pos_x, &pacman->pos_y);
-        }
-        line = strtok(NULL, "\n");
-    }
-    
-    board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
-
-    pacman->points = accumulated_points;
-    pacman->alive = 1;
-
-    free(buffer);
-
-    return 0;
-
-} 
-
-int load_ghosts_from_file(board_t *board) {
-    
-}
