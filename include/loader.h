@@ -44,7 +44,7 @@ typedef struct{
 
 
 void cleanup_resources(GameResources *res);
-int load_level_from_file(board_t *board, const char *level_path, int accumulated_points);
+int load_level_from_file(board_t *board, const char *full_level_path, int accumulated_points, const char *base_path);
 GameResources *load_directory(const char *name);
 
 #endif
