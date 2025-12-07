@@ -1,15 +1,28 @@
-# PASSO: comando de espaçamento de movimentos
-# Só existe um no início por ficheiro. Indica quantas jogadas esperar
-# entre cada movimento.
+#PASSO: define a velocidade do Pacman. 
+# 1 = move-se todos os turnos (é mais rápido que os monstros tipicos)
 PASSO 1
-# POS: comando de colocação inicial do monstro (linha e coluna).
-# Assume-se que não é possível o monstro ser colocado
-# numa posição impossível/inexistente.
-# Só existe um no início por ficheiro.
-POS 4 1
-# Todos os comandos após PASSO e POS são executados em ciclo infinito.
-# Os comandos possíveis são A (esq.), D (dir.), W (cima.), S (baixo)
-# R (direcção aleatória), T (espera um número de jogadas), C (carregar)
-A
-A
+
+#POS: Posição inicial (Linha 1, Coluna 1)
+# Certifica-te que esta posição é um espaço vazio ('o') no teu mapa!
+POS 1 1
+
+# Comandos de movimento (ciclo infinito)
+# 1. Move-se 4 vezes para a Direita (D)
+# 2. Espera 1 turno (T 1) para "pensar"
+# 3. Move-se 2 vezes para Baixo (S)
+# 4. Usa um movimento Aleatório (R) para ser imprevisível
+# 5. Volta para a Esquerda (A)
 D
+D
+D
+D
+T 1
+S
+S
+R
+A
+A
+A
+A
+W
+W

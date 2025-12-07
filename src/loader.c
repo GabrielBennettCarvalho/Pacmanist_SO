@@ -286,7 +286,7 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
             sscanf(line + 5, "%d", &pacman->passo);
         }
         else if (strncmp(line, "POS", 3) == 0) {
-            sscanf(line + 3, "%d %d", &pacman->pos_x, &pacman->pos_y);
+            sscanf(line + 3, "%d %d", &pacman->pos_y, &pacman->pos_x);
 
             // If it's anything else, it's the controls.
         } else {
@@ -369,7 +369,7 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
                 sscanf(line + 5, "%d", &ghost->passo);
 
             }else if(strncmp(line, "POS", 3) == 0){
-                sscanf(line + 3, "%d %d", &ghost->pos_x, &ghost->pos_y);
+                sscanf(line + 3, "%d %d", &ghost->pos_y, &ghost->pos_x);
             }else{
                 // Read moves
                 if(ghost->n_moves >= MAX_MOVES){
@@ -507,9 +507,6 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
 
     board->n_pacmans = 1;
 
-    // TEMPORARY.
-    board->n_ghosts = 2;
-
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
@@ -525,7 +522,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         }
     }
 
-    if(load_ghosts_from_file(board, level_path) != 0){
+    if(load_ghosts_from_file(board, base_path) != 0){
         free(buffer);
         return 1;
     }
