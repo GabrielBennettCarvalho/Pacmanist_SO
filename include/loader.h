@@ -4,47 +4,15 @@
 #include <board.h>
 #include <dirent.h>
 
-// Not sure if we need to create 2 whole new files for this.
 
-// Dynamic list structure to hold level file names
-typedef struct{
-    char **array;
-    int size;
-    int max_capacity;
-}DynamicList;
-
-// Structure to hold behavior entry
-typedef struct{
-    char *file_name;
-    // char * content; o behavior dos .m e dos .p podem ser adicionados aqui
-    /*// mais tarde faria assim para encontrar o comportamento associado a uma chave
-    BehaviorEntry *find_behavior_entry(BehaviorMap *map, const char *key) {
-        for (int i = 0; i < map->size; i++) {
-            if (strcmp(map->entries[i].key, key) == 0) {
-                return &map->entries[i];
-            }
-        }
-        return NULL; // Não encontrado
-}*/
-}BehaviorEntry;
-
-// Map structure to hold behavior entries
-typedef struct{
-    BehaviorEntry *array;
-    int size;
-    int max_capacity;
-
-}BehaviorMAP;
-
-// Structure to hold all game resources
-typedef struct{
-    DynamicList *levels;
-    BehaviorMAP *behaviors;
-}GameResources;
+typedef struct {
+    char *level_names[MAX_LEVELS];       // Array of strings (file names)
+    int size;        
+} LevelList;
 
 
-void cleanup_resources(GameResources *res);
+void free_level_list(LevelList *list);
 int load_level_from_file(board_t *board, const char *full_level_path, int accumulated_points, const char *base_path);
-GameResources *load_directory(const char *name);
+LevelList *load_directory(const char *name);
 
 #endif
