@@ -141,9 +141,8 @@ int main(int argc, char** argv) {
     }
 
     while (current_lvl_idx < levels->size && !end_game) {
-        //load_level(&game_board, accumulated_points);
-
-
+    
+        
         char level_full_path[512];
 
         // Build the full path
