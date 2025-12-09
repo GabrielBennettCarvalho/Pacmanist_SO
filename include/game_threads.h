@@ -13,12 +13,26 @@ typedef struct {
 } thread_args_t;
 
 
-void start_threads(board_t *board,
-    pthread_mutex_t *board_mutex,
-    bool *keep_running,
-    pthread_t *thread_ids,
-    thread_args_t *args_storage
+void start_threads(
+    board_t *board, 
+    pthread_mutex_t *board_mutex,    
+    bool *keep_running, 
+    pthread_t *ui_thread, 
+    pthread_t *pacman_thread, 
+    pthread_t *monster_threads, 
+    thread_args_t *monster_args
 );
+
+void stop_threads(
+    pthread_t ui_thread, 
+    pthread_t pacman_thread, 
+    pthread_t *monster_threads, 
+    int n_ghosts, 
+    bool *keep_running,
+    pthread_mutex_t *board_mutex
+);
+
+
 
 void *monster_thread_func(void *arg);
 void *pacman_thread_func(void *arg);
