@@ -100,15 +100,18 @@ int main(int argc, char** argv) {
     }
 
 
-    GameResources *resources = load_directory(path);
+    LevelList *levels = load_directory(path);
 
     
-    if (resources == NULL) {
+    if (levels == NULL) {
         fprintf(stderr, "Error: load_directory returned NULL.\n");
         return 1;
     }
 
-
+    if(levels->size == 0) {
+        free_level_list(levels);
+        return 1;
+    }
 
     // Random seed for any random movements
     srand((unsigned int)time(NULL));
@@ -124,14 +127,14 @@ int main(int argc, char** argv) {
     int status;
     bool am_i_child = false;
 
-    while (current_lvl_idx < resources->levels->size && !end_game) {
+    while (current_lvl_idx < levels->size && !end_game) {
         //load_level(&game_board, accumulated_points);
 
 
         char level_full_path[512];
 
         // Build the full path
-        snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, resources->levels->array[current_lvl_idx]);
+        snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, levels->level_names[current_lvl_idx]);
         // Write the number of the level on screen
         sprintf(game_board.level_name, "LEVEL %d", current_lvl_idx + 1);
 
@@ -221,7 +224,7 @@ int main(int argc, char** argv) {
     }    
     terminal_cleanup();
 
-    cleanup_resources(resources);
+    free_level_list(levels);
 
     close_debug_file();
     
