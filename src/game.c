@@ -1,13 +1,13 @@
 #include "board.h"
 #include "display.h"
 #include "loader.h"
+#include "game_threads.h"
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <string.h>
 #include <dirent.h>
-
 
 #define CONTINUE_PLAY 0
 #define NEXT_LEVEL 1
@@ -127,6 +127,19 @@ int main(int argc, char** argv) {
     int status;
     bool am_i_child = false;
 
+
+    // Thread arguments initialization
+    pthread_t thread_ids[MAX_GHOSTS + 1];
+    thread_args_t thread_args[MAX_GHOSTS + 1];
+
+    pthread_mutex_t board_mutex;
+    bool game_running = false;
+
+    // initialization of mutex
+    if (pthread_mutex_init(&board_mutex, NULL) != 0 ) {
+        return 1;
+    }
+
     while (current_lvl_idx < levels->size && !end_game) {
         //load_level(&game_board, accumulated_points);
 
@@ -144,9 +157,12 @@ int main(int argc, char** argv) {
             break;
         }
 
+
+        // Initialize threads... TODO
+
         draw_board(&game_board, DRAW_MENU);
         refresh_screen();
-
+        // PRobably change logic of this!
         while(true) {
             int result = play_board(&game_board, am_i_child); 
 
