@@ -1,0 +1,84 @@
+#include <ncurses.h>
+#include <unistd.h>   
+#include <stdlib.h>  
+#include <string.h>   
+#include "game_threads.h"
+#include "display.h"  //as tuas funções do display.c
+#include "board.h"
+
+// Função auxiliar para preparar a memória da cópia local
+
+//####FOI O CHAT NÃO PERCEBO NADA DISTO####
+// tinha feito sem isto antes
+void setup_snapshot_memory(board_t *snapshot, board_t *original) {
+    // 1. Copiar estrutura base (tamanhos, contadores...)
+    *snapshot = *original;
+
+    // 2. Alocar memória Própria para os arrays
+    // Se não fizéssemos isto, os ponteiros do snapshot apontariam para 
+    // a memória real, e teríamos race conditions na mesma!
+    snapshot->board = malloc(sizeof(board_pos_t) * original->width * original->height);
+    snapshot->pacmans = malloc(sizeof(pacman_t) * original->n_pacmans);
+    snapshot->ghosts = malloc(sizeof(ghost_t) * original->n_ghosts);
+
+    if (!snapshot->board || !snapshot->pacmans || !snapshot->ghosts) {
+        endwin();
+        fprintf(stderr, "Erro Fatal: Falta de memória para o UI Snapshot.\n");
+        exit(1);
+    }
+}
+
+void free_snapshot_memory(board_t *snapshot) {
+    free(snapshot->board);
+    free(snapshot->pacmans);
+    free(snapshot->ghosts);
+}
+
+void *ui_thread_func(void *arg) {
+
+    // 1. Recuperar os argumentos
+    thread_args_t *args = (thread_args_t*)arg;
+    board_t *real_board = args->game_board;
+    pthread_mutex_t *mutex = args->board_mutex;
+    bool *keep_running = args->keep_running;
+
+    // 2. Criar o Tabuleiro "Snapshot"
+    board_t local_board;
+    setup_snapshot_memory(&local_board, real_board);
+
+    while (*keep_running) {
+        
+        // dar lock ao mutex antes de aceder ao board real 
+        pthread_mutex_lock(mutex);
+
+        // Copiar a grelha (paredes, itens, etc)
+        memcpy(local_board.board, real_board->board, 
+               sizeof(board_pos_t) * real_board->width * real_board->height);
+        
+        // Copiar os Pacmans, para saber onde desenhá-lo depois
+        memcpy(local_board.pacmans, real_board->pacmans, 
+               sizeof(pacman_t) * real_board->n_pacmans);
+
+        // Copiar os Monstros
+        memcpy(local_board.ghosts, real_board->ghosts, 
+               sizeof(ghost_t) * real_board->n_ghosts);
+        
+        // /###E preciso copiar mais alguma coisa? Provavelmente não i guess###
+
+        pthread_mutex_unlock(mutex);
+    
+
+        // Usamos a cópia local para desenhar o ecrã
+        draw_board(&local_board, 0); // 0 = Modo Normal
+        
+        refresh_screen();
+
+        //##VER SE PODEMOS USAR O USLEEP AQUI## alterar valores conforme necessário
+        usleep(40000); 
+    }
+
+    // Limpar a memória antes de sair
+    free_snapshot_memory(&local_board);
+    
+    return NULL;
+}
