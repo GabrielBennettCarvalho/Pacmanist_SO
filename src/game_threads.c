@@ -35,7 +35,7 @@ void start_threads(
     //configurar o pacman mais ou menos igual
 
     //lançar thread do pacman
-
+    pthread_create(pacman_thread, NULL, pacman_thread_func, &pacman_args);
 
     for (int i = 0; i < board->n_ghosts; i++) {
 

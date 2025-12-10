@@ -128,10 +128,10 @@ int main(int argc, char** argv) {
     bool am_i_child = false;
 
 
-    // Thread arguments initialization
-    pthread_t thread_ids[MAX_GHOSTS + 1];
-    thread_args_t thread_args[MAX_GHOSTS + 1];
-
+    pthread_t ui_thread;
+    pthread_t pacman_thread;
+    pthread_t monster_threads[MAX_GHOSTS];
+    
     pthread_mutex_t board_mutex;
     bool game_running = false;
 
