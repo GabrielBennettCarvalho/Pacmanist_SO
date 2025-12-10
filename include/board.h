@@ -6,6 +6,12 @@
 #define MAX_FILENAME 256
 #define MAX_GHOSTS 25
 
+#define CONTINUE_PLAY 0
+#define NEXT_LEVEL 1
+#define QUIT_GAME 2
+#define LOAD_BACKUP 3
+#define CREATE_BACKUP 4
+
 typedef enum {
     REACHED_PORTAL = 1,
     VALID_MOVE = 0,
@@ -58,6 +64,7 @@ typedef struct {
     char ghosts_files[MAX_GHOSTS][256]; // files with monster movements
     int tempo;              // Duration of each play
     char next_user_move;    // user's input for the pacman thread
+    int exit_status;         // the reason for the threads to stop (quit, save, next level)
 } board_t;
 
 /*Makes the current thread sleep for 'int milliseconds' miliseconds*/

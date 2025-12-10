@@ -3,5 +3,6 @@
 
 void *ui_thread_func(void *arg);
 
+void screen_refresh(board_t * game_board, int mode);
 
 #endif
