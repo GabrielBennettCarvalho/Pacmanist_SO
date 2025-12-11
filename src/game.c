@@ -38,7 +38,7 @@ int play_board(board_t * game_board, bool am_i_child) {
         return QUIT_GAME;
     }
     if (play->command == 'G') {
-        // If I'm the child, I can't save again.
+        // If I'm the child,  I can't create another save.
         if (am_i_child) {
             return CONTINUE_PLAY;
         } else
@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
         printf("Usage: %s <level_directory>\n", argv[0]);
         scanf("%255s", path);
     } else {
-        // Se argc == 2, TEMOS de copiar o argv[1] para a variável path
+        // If argc == 2, we MUST copy argv[1] into the path variable
         strcpy(path, argv[1]); 
     }
 
@@ -175,9 +175,11 @@ int main(int argc, char** argv) {
         if (result == CREATE_BACKUP) {
             pid_t pid = fork();
             if (pid < 0) {
-                end_game = true; // Fatal error
+                end_game = true; // Fatal error, Fork failed
             } 
             else if (pid > 0) {
+                // --- PARENT PROCESS ---
+                // The parent waits here. It acts as the "Restore Point".
                 wait(&status);
 
                  // Did the child die normally through exit/return instead of a crash?
@@ -217,7 +219,7 @@ int main(int argc, char** argv) {
         
 
         if (result == PACMAN_DIED) {
-            if (am_i_child) exit(LOAD_BACKUP);
+            if (am_i_child) exit(LOAD_BACKUP); // Signal parent to restore
             else {
                 screen_refresh(&game_board, DRAW_GAME_OVER); 
                 sleep_ms(2000);

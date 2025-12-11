@@ -9,26 +9,26 @@
 #include "loader.h"
 
 /**
- *  ******* TALVEZ COLOCAR EM UM FICHEIRO UTILIDADES ********
- * Função de comparação para qsort. 
- * Ordena os nomes de ficheiro .lvl pela ordem numérica do seu prefixo (ex: '1' em '1.lvl').
+ * Comparison function for qsort.
+ * Sorts .lvl filenames by the numerical value of their prefix 
+ * (e.g., ensures '2.lvl' comes before '10.lvl', unlike standard string sort).
  */
 int compare_level_numbers(const void *a, const void *b) {
-    // 1. Converter os ponteiros genéricos (void*) para char**
+    // 1. Cast generic void pointers to double pointers to char (array of strings)
     const char *name_a = *(const char **)a;
     const char *name_b = *(const char **)b;
 
     int num_a, num_b;
 
-    // 2. Extrair o número inicial de cada string.
+    // Extract the initial number from each string.
     if (sscanf(name_a, "%d", &num_a) != 1) {
-        // Falha na leitura do número (isto não deve acontecer se os nomes forem válidos)
+        // If parsing fails, consider 'a' smaller
         return 0; 
     }
     if (sscanf(name_b, "%d", &num_b) != 1) {
         return 0;
     }
-    // Se for negativa, 'b' é maior e se for positiva, 'a' é maior.
+    // If negative, 'a' comes before 'b'. If positive, 'a' comes after 'b'.
     return num_a - num_b;
 }
 
@@ -47,17 +47,17 @@ void free_level_list(LevelList *list) {
 
 LevelList *load_directory(const char *name){
 
-    //abrir diretório
+    //open directory
     DIR *directory = opendir(name);
     if(directory == NULL){
         perror("opendir");
         return NULL;
     }
     
-    //ler entradas do diretório
+    //Structure to hold directory entries
     struct dirent *entrada;
 
-    //criar estrutura para guardar nomes de ficheiros
+    // Allocate memory for the list structure
     LevelList *list = malloc(sizeof(LevelList));
     if (list == NULL){
         closedir(directory);
@@ -75,6 +75,7 @@ LevelList *load_directory(const char *name){
             break; 
         }
 
+        // Skip current directory (.) and parent directory (..)
         if(strcmp(entrada->d_name, ".") == 0 || strcmp(entrada->d_name, "..") == 0){
             continue;
         }
@@ -82,12 +83,13 @@ LevelList *load_directory(const char *name){
         const char *file_name = entrada->d_name;
         int len = strlen(file_name);
 
+        // Check if file ends with .lvl extension
         if(len > 4 && strcmp(file_name + len - 4, ".lvl") == 0){
 
-            //alocar memória para o nome do ficheiro
+            // Allocate memory for the new level name
             char *new_name = malloc((len + 1) * sizeof(char));
             if(new_name == NULL){
-                //libertar memória alocada anteriormente em caso de erro
+                // Memory allocation failed, clean up and return NULL
                 free_level_list(list);
                 closedir(directory);
                 return NULL;
@@ -102,7 +104,7 @@ LevelList *load_directory(const char *name){
 
     closedir(directory);
 
-    //ordenar a lista de níveis numericamente 1.lvl, 2.lvl, 3.lvl , etc
+    // Sort the level names using the custom comparison function
     qsort(list->level_names, list->size, sizeof(char *), compare_level_numbers);  
 
 
@@ -159,7 +161,7 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
         return 1;
     }
 
-    // Get first line
+    // Get first line using strtok
     char *line = strtok(buffer, "\n");
 
     pacman_t *pacman = board->pacmans;
@@ -171,7 +173,7 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
 
     while (line != NULL) {
         if (line[0] == '#' || line[0] == '\n') {
-            // Do nothing, let it reach the bottom to get to the next line
+            // Ignore comments and empty lines, proceed to next iteration
         }
         else if (strncmp(line, "PASSO", 5) == 0) {
             sscanf(line + 5, "%d", &pacman->passo);
@@ -204,17 +206,20 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
             pacman->n_moves++;
 
         }
+        // Get next line from buffer
         line = strtok(NULL, "\n");
     }
     
+    // Validate Pacman starting position against board boundaries and walls
     if (pacman->pos_x >= 0 && pacman->pos_x < board->width &&
         pacman->pos_y >= 0 && pacman->pos_y < board->height &&
         board->board[pacman->pos_y * board->width + pacman->pos_x].content != 'W') {
-        
+
+        // Place Pacman on the board grid
         board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
     } else {
         free(buffer);
-        return 1;
+        return 1; // Error: Invalid position
     }
     
     pacman->points = accumulated_points;
@@ -241,7 +246,7 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
         // Read file into buffer
         char *buffer = read_into_buffer(fd);
 
-        //close the file
+        //close the file descriptor
         close(fd);
 
         if(buffer == NULL){
@@ -256,7 +261,7 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
 
         while(line != NULL){
             if(line[0] == '#' || line[0] == '\n'){
-
+                // Skip comments and empty lines
             }else if(strncmp(line, "PASSO", 5) == 0){
                 sscanf(line + 5, "%d", &ghost->passo);
 
@@ -345,11 +350,11 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
             if (sscanf(line + 3, "%d %d", &w, &h) == 2) { 
                 board->width = w;
                 board->height = h;
-
+                // Allocate memory for the board grid using 1D array logic
                 board->board = calloc(board->width * board->height, sizeof(board_pos_t));
             }
         }
-        // Read Tempo
+        // Read Tempo (Speed)
         else if (strncmp(line, "TEMPO", 5) == 0) {
             if (sscanf(line + 5, "%d", &tempo) == 1) {
                 board->tempo = tempo;
@@ -359,10 +364,12 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         else if (strncmp(line, "PAC", 3) == 0) {
            sscanf(line + 3, "%255s", board->pacman_file);
         }
+        // Read Monster config file names
         else if (strncmp(line, "MON", 3) == 0) {
            char *ptr = line + 3; // Skip MON
            int offset;
 
+           // Iteratively read multiple filenames from the same line
            while (board->n_ghosts < MAX_GHOSTS &&
                 sscanf(ptr, "%255s%n", board->ghosts_files[board->n_ghosts], &offset) == 1) {
                 ptr += offset;
@@ -384,7 +391,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
                 }
                 else if (line[x] == '@') {
                     board->board[idx].content = ' ';
-                    board->board[idx].has_portal = 1;
+                    board->board[idx].has_portal = 1; // Exit Portal
                 }
                 
             }
@@ -398,7 +405,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
 
 
     board->n_pacmans = 1;
-
+    // Allocate structures for entities
     board->pacmans = calloc(board->n_pacmans, sizeof(pacman_t));
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
@@ -408,6 +415,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         load_pacman(board, accumulated_points);
         
     } else {
+        // Otherwise, load automatic moves from file
         if (load_pacman_from_file(board, accumulated_points, base_path) != 0) {
             free(buffer);
             return 1;
