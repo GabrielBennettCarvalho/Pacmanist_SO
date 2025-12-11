@@ -1,5 +1,5 @@
 #PASSO: velocidade do monstro
-PASSO 3
+PASSO 50
 #POS: posição inicial (Linha 6, Coluna 1 - Canto inferior esquerdo da espiral)
 POS 6 1
 # Comportamento:

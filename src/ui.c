@@ -9,7 +9,7 @@
 
 
 void screen_refresh(board_t * game_board, int mode) {
-    debug("REFRESH\n");
+   // debug("REFRESH\n");
     draw_board(game_board, mode);
     refresh_screen();
     if(game_board->tempo != 0)
@@ -80,9 +80,8 @@ void *ui_thread_func(void *arg) {
         pthread_mutex_unlock(mutex);
     
         // Usamos a cópia local para desenhar o ecrã
-        screen_refresh(&local_board, 0);
+        screen_refresh(&local_board, DRAW_MENU);
         /*// Usamos a cópia local para desenhar o ecrã
-        draw_board(&local_board, 0); // 0 = Modo Normal
         
         refresh_screen();*/ // Acho que n precisamos de usar estas funções e 
         //apenas usamos o screen_refresh que serve de "atalho" ig
@@ -96,8 +95,10 @@ void *ui_thread_func(void *arg) {
                 *keep_running = false;
 
             } else if (ch == 'G') {
+                if (real_board->can_save) {
                 real_board->exit_status = CREATE_BACKUP;
                 *keep_running = false;
+                }
             }
             else {
                 real_board->next_user_move = ch;

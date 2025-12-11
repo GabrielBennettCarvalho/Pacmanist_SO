@@ -208,7 +208,8 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
     }
     
     if (pacman->pos_x >= 0 && pacman->pos_x < board->width &&
-        pacman->pos_y >= 0 && pacman->pos_y < board->height) {
+        pacman->pos_y >= 0 && pacman->pos_y < board->height &&
+        board->board[pacman->pos_y * board->width + pacman->pos_x].content != 'W') {
         
         board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
     } else {

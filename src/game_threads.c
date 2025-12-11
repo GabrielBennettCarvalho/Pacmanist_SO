@@ -5,11 +5,6 @@
 #include "game_threads.h"
 #include "board.h"
 
-#define CONTINUE_PLAY 0
-#define NEXT_LEVEL 1
-#define QUIT_GAME 2
-#define LOAD_BACKUP 3
-#define CREATE_BACKUP 4
 
 void start_threads(
     board_t *board,
@@ -115,6 +110,9 @@ void *monster_thread_func(void *arg) {
 
         if (result == DEAD_PACMAN) {
             *keep_running = false;
+            board->exit_status = PACMAN_DIED;
+            pthread_mutex_unlock(mutex);
+            break;
         }
 
         pthread_mutex_unlock(mutex);
@@ -165,13 +163,49 @@ void *pacman_thread_func(void *arg) {
         }
         else { 
             play = &pacman->moves[pacman->current_move%pacman->n_moves];
+
+            if (play->command == 'Q') {
+                *keep_running = false;
+                board->exit_status = QUIT_GAME;
+                pthread_mutex_unlock(mutex);
+
+                break;
+            }
+            if (play->command == 'G') {
+                // Check if we can save
+                if (board->can_save) {
+                    board->exit_status = CREATE_BACKUP;
+                    *keep_running = false; // Stop threads only if valid
+                    pacman->current_move++;
+                    pthread_mutex_unlock(mutex);
+                    break;
+                } 
+                else {
+                    // WE ARE ALREADY A CHILD (BACKUP)
+                    pacman->current_move++; // Consume the 'G' so we don't get stuck
+                    
+                    pthread_mutex_unlock(mutex);
+                    sleep_ms(board->tempo); 
+                    continue; 
+                }
+            }
         }
 
         int result = move_pacman(board, 0, play);
 
+
+        // in case the pacman kills himself
+        if (result == DEAD_PACMAN) {
+            *keep_running = false;
+            board->exit_status = PACMAN_DIED; 
+            pthread_mutex_unlock(mutex);    
+            break;
+        }
         if (result == REACHED_PORTAL) {
-            keep_running = false;
+            //keep_running = false;
             board->exit_status = NEXT_LEVEL;
+            pthread_mutex_unlock(mutex);
+            break;
         }
 
         pthread_mutex_unlock(mutex);

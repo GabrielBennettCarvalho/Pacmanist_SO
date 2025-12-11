@@ -1,6 +1,6 @@
 #PASSO: comando de espaçamento de movimentos
 # Indica quantas jogadas esperar entre cada movimento.
-PASSO 5
+PASSO 50
 #POS: comando de colocação inicial do monstro (linha e coluna).
 # Coordenadas baseadas no mapa 2.lvl (Row 5, Col 1)
 POS 5 1

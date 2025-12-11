@@ -11,6 +11,8 @@
 #define QUIT_GAME 2
 #define LOAD_BACKUP 3
 #define CREATE_BACKUP 4
+#define PACMAN_DIED 5
+
 
 typedef enum {
     REACHED_PORTAL = 1,
@@ -64,7 +66,8 @@ typedef struct {
     char ghosts_files[MAX_GHOSTS][256]; // files with monster movements
     int tempo;              // Duration of each play
     char next_user_move;    // user's input for the pacman thread
-    int exit_status;         // the reason for the threads to stop (quit, save, next level)
+    int exit_status;        // the reason for the threads to stop (quit, save, next level)
+    int can_save;           // Whether the game can be backedup or not
 } board_t;
 
 /*Makes the current thread sleep for 'int milliseconds' miliseconds*/

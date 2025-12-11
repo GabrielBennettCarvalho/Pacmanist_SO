@@ -10,11 +10,7 @@
 #include <string.h>
 #include <dirent.h>
 
-#define CONTINUE_PLAY 0
-#define NEXT_LEVEL 1
-#define QUIT_GAME 2
-#define LOAD_BACKUP 3
-#define CREATE_BACKUP 4
+
 
 
 int play_board(board_t * game_board, bool am_i_child) {
@@ -122,6 +118,7 @@ int main(int argc, char** argv) {
     int result;
     bool am_i_child = false;
 
+    bool reload_level = true;
 
     pthread_t ui_thread;
     pthread_t pacman_thread;
@@ -137,23 +134,22 @@ int main(int argc, char** argv) {
     while (current_lvl_idx < levels->size && !end_game) {
     
         
-        char level_full_path[512];
-
-        // Build the full path
-        snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, levels->level_names[current_lvl_idx]);
-        // Write the number of the level on screen
-        sprintf(game_board.level_name, "LEVEL %d", current_lvl_idx + 1);
-
-        if (load_level_from_file(&game_board, level_full_path, accumulated_points, path) != 0) {
-            //error
-            fprintf(stderr, "Error reading level %s\n", level_full_path);
-            break;
+        // Use the flag to know if we should go to next level or simply go back to where we were at.
+        if (reload_level) {
+            char level_full_path[512];
+            snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, levels->level_names[current_lvl_idx]);
+            
+    
+            if (load_level_from_file(&game_board, level_full_path, accumulated_points, path) != 0) {
+                fprintf(stderr, "Error reading level %s\n", level_full_path);
+                break;
+            }
+            sprintf(game_board.level_name, "LEVEL %d", current_lvl_idx + 1);
         }
 
-
-        // Initialize threads... TODO
         // Initialize game
         game_board.exit_status = CONTINUE_PLAY;
+        game_board.can_save = !am_i_child;
         bool threads_running = true;
 
         start_threads(&game_board, &board_mutex, &threads_running, &ui_thread, &pacman_thread, monster_threads);
@@ -174,24 +170,23 @@ int main(int argc, char** argv) {
         }
 
         stop_threads(ui_thread,pacman_thread,monster_threads, game_board.n_ghosts, &threads_running);
-
-
+        result = game_board.exit_status;
 
         if (result == CREATE_BACKUP) {
             pid_t pid = fork();
             if (pid < 0) {
-                return 1;
-            } if (pid > 0) {
+                end_game = true; // Fatal error
+            } 
+            else if (pid > 0) {
                 wait(&status);
 
                  // Did the child die normally through exit/return instead of a crash?
                 if (WIFEXITED(status)) {
                     int exit_code = WEXITSTATUS(status);
 
-                // Means that the pacman died, so we continue the loop and the threads start again.
+                // Means that the pacman died with a backup, so we continue the loop and the threads start again.
                     if (exit_code == LOAD_BACKUP) {
-                        // No need for screen_refresh because the ui_thread will do that
-                        //screen_refresh(&game_board, DRAW_MENU);
+                        reload_level = false;
                         continue;
                     }
                     else if (exit_code == QUIT_GAME) {
@@ -206,22 +201,44 @@ int main(int argc, char** argv) {
                         break;
                 }
             }
-                if (pid == 0)   {
-                    am_i_child = true;
+            else if (WIFSIGNALED(status)) {
+                     // If child crashed, we treat it as a  game over
+                     // Here we end game to stop infinite loops.
+                     end_game = true;
+                     break;
                 }
-            }
         }
-        if (result == LOAD_BACKUP) {
-            exit(LOAD_BACKUP);
+            if (pid == 0)   {
+                    am_i_child = true;
+                    reload_level = false;
+                    continue;
+                }
+        }
+        
+
+        if (result == PACMAN_DIED) {
+            if (am_i_child) exit(LOAD_BACKUP);
+            else {
+                screen_refresh(&game_board, DRAW_GAME_OVER); 
+                sleep_ms(2000);
+                end_game = true;
+                break;
+            }
         }
         if (result == NEXT_LEVEL) {
             screen_refresh(&game_board, DRAW_WIN);
+            sleep_ms(700);
+            accumulated_points = game_board.pacmans[0].points;
+
+            unload_level(&game_board);
             current_lvl_idx++;
+            reload_level = true;    
             continue;
         } 
-        if(result == QUIT_GAME) {
+        // If the user pressed Q
+        if (result == QUIT_GAME) {
             screen_refresh(&game_board, DRAW_GAME_OVER); 
-            sleep_ms(game_board.tempo);
+            sleep_ms(2000);
 
             if (am_i_child) {
                     exit(QUIT_GAME);
@@ -230,11 +247,8 @@ int main(int argc, char** argv) {
             end_game = true;
             break;
         }
-        accumulated_points = game_board.pacmans[0].points;      
-
-        //draw_board(&game_board, DRAW_MENU);
-        //refresh_screen();
-        // PRobably change logic of this!
+        // If loop ends without continue, cleanup
+        //if (reload_level) unload_level(&game_board);
 
         print_board(&game_board);
     }    
