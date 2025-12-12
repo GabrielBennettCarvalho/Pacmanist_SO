@@ -14,7 +14,7 @@
  * (e.g., ensures '2.lvl' comes before '10.lvl', unlike standard string sort).
  */
 int compare_level_numbers(const void *a, const void *b) {
-    // 1. Cast generic void pointers to double pointers to char (array of strings)
+    // Cast generic void pointers to double pointers to char (array of strings)
     const char *name_a = *(const char **)a;
     const char *name_b = *(const char **)b;
 
@@ -187,9 +187,6 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
             if (pacman->n_moves >= MAX_MOVES) {
             break; 
         }
-
-
-
             char cmd = line[0];
             int duration = 1;
 
@@ -210,13 +207,19 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
         line = strtok(NULL, "\n");
     }
     
-    // Validate Pacman starting position against board boundaries and walls
+    // Validate Pacman starting position against board boundaries
     if (pacman->pos_x >= 0 && pacman->pos_x < board->width &&
-        pacman->pos_y >= 0 && pacman->pos_y < board->height &&
-        board->board[pacman->pos_y * board->width + pacman->pos_x].content != 'W') {
+        pacman->pos_y >= 0 && pacman->pos_y < board->height) {
 
+        int index = pacman->pos_y * board->width + pacman->pos_x;
+        // Check if there's already a monster or a wall.
+        if (board->board[index].content != 'W' && board->board[index].content != 'M'){
         // Place Pacman on the board grid
-        board->board[pacman->pos_y * board->width + pacman->pos_x].content = 'P';
+        board->board[index].content = 'P';
+        } else {
+            free(buffer);
+            return 1; // Spawn collision.
+        }
     } else {
         free(buffer);
         return 1; // Error: Invalid position
@@ -234,7 +237,9 @@ int load_pacman_from_file(board_t *board, int accumulated_points, const char* di
 
 int load_ghosts_from_file(board_t *board, const char* directory_path) {
 
-    for(int i = 0; i < board->n_ghosts; i++){
+    // for each ghost
+    for(int i = 0; i < board->n_ghosts; i++) {
+        // Build the full path
         char full_path[512];
         snprintf(full_path, sizeof(full_path), "%s/%s", directory_path, board->ghosts_files[i]);
         int fd = open(full_path, O_RDONLY);
@@ -292,12 +297,19 @@ int load_ghosts_from_file(board_t *board, const char* directory_path) {
         }
 
 
-        if(
-            ghost->pos_x >= 0 && ghost->pos_x < board->width &&
-            ghost->pos_y >= 0 && ghost->pos_y < board->height
-        ){
-            board->board[ghost->pos_y * board->width + ghost->pos_x].content = 'M';
-        }else{
+        if(ghost->pos_x >= 0 && ghost->pos_x < board->width &&
+            ghost->pos_y >= 0 && ghost->pos_y < board->height){
+            
+            int index = ghost->pos_y * board->width + ghost->pos_x;
+
+            if (board->board[index].content != 'W'){
+                // Place the monster on the board grid
+                board->board[index].content = 'M';
+            } else {
+            free(buffer);
+            return 1; // Spawn collision.
+            }
+        }else {
             // Invalid position
             free(buffer);
             return 1;
@@ -315,7 +327,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         perror("open");
         return 1;
     }
-    
+    // Read the whole file into a buffer
     char *buffer = read_into_buffer(fd);
 
     // Close the file as we don't need it anymore.
@@ -336,7 +348,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
     board->board = NULL;
 
     // We set the first character to \0. If the "PAC" line is never found, 
-    // this string remains empty, signaling "User Control".
+    // this string remains empty, meaning it's the user playing.
     memset(board->pacman_file, 0, sizeof(board->pacman_file));
 
 
@@ -350,21 +362,21 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
             if (sscanf(line + 3, "%d %d", &w, &h) == 2) { 
                 board->width = w;
                 board->height = h;
-                // Allocate memory for the board grid using 1D array logic
+                // Allocate memory for the board grid
                 board->board = calloc(board->width * board->height, sizeof(board_pos_t));
             }
         }
-        // Read Tempo (Speed)
+        // Read tempo
         else if (strncmp(line, "TEMPO", 5) == 0) {
             if (sscanf(line + 5, "%d", &tempo) == 1) {
                 board->tempo = tempo;
             }
         }
-        // Read Pacman file
+        // Read pacman file
         else if (strncmp(line, "PAC", 3) == 0) {
            sscanf(line + 3, "%255s", board->pacman_file);
         }
-        // Read Monster config file names
+        // Read monster config file names
         else if (strncmp(line, "MON", 3) == 0) {
            char *ptr = line + 3; // Skip MON
            int offset;
@@ -410,9 +422,18 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
     board->ghosts = calloc(board->n_ghosts, sizeof(ghost_t));
 
 
+  if(load_ghosts_from_file(board, base_path) != 0){
+        free(buffer);
+        return 1;
+    }
+
+
     if (board->pacman_file[0] == '\0') {
         // If there's no pacman file, the user controls it.
-        load_pacman(board, accumulated_points);
+        if(load_pacman(board, accumulated_points) != 0) {
+            free(buffer);
+            return 1;
+        }
         
     } else {
         // Otherwise, load automatic moves from file
@@ -422,10 +443,7 @@ int load_level_from_file(board_t *board, const char *full_level_path, int accumu
         }
     }
 
-    if(load_ghosts_from_file(board, base_path) != 0){
-        free(buffer);
-        return 1;
-    }
+
 
     free(buffer);
     return 0;

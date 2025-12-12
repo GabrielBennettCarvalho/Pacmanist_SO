@@ -88,7 +88,7 @@ int main(int argc, char** argv) {
         return 1; 
         }   
     } else {
-        // If argc == 2, we MUST copy argv[1] into the path variable
+        // If argc == 2, we copy argv[1] into the path variable
         strcpy(path, argv[1]); 
     }
 
@@ -117,13 +117,13 @@ int main(int argc, char** argv) {
     int accumulated_points = 0;
     bool end_game = false;
     board_t game_board;
-    // Zero out the memory to remove "garbage"
+    // Zero out the memory to remove garbage
     memset(&game_board, 0, sizeof(board_t));
     
     int status;
     int result;
-    bool am_i_child = false;
 
+    bool am_i_child = false;
     bool reload_level = true;
 
     pthread_t ui_thread;
@@ -134,6 +134,7 @@ int main(int argc, char** argv) {
 
     // initialization of mutex
     if (pthread_mutex_init(&board_mutex, NULL) != 0 ) {
+        debug("Error initializing mutex");
         return 1;
     }
 
@@ -143,11 +144,12 @@ int main(int argc, char** argv) {
         // Use the flag to know if we should go to next level or simply go back to where we were at.
         if (reload_level) {
             char level_full_path[512];
+            // Build the full path
             snprintf(level_full_path, sizeof(level_full_path), "%s/%s", path, levels->level_names[current_lvl_idx]);
             
     
             if (load_level_from_file(&game_board, level_full_path, accumulated_points, path) != 0) {
-                fprintf(stderr, "Error reading level %s\n", level_full_path);
+                debug("Error opening file");
                 break;
             }
             sprintf(game_board.level_name, "LEVEL %d", current_lvl_idx + 1);
@@ -225,6 +227,8 @@ int main(int argc, char** argv) {
 
         if (result == PACMAN_DIED) {
             if (am_i_child) exit(LOAD_BACKUP); // Signal parent to restore
+
+            // Else, we simply quit the game.
             else {
                 screen_refresh(&game_board, DRAW_GAME_OVER); 
                 sleep_ms(2000);
@@ -248,7 +252,7 @@ int main(int argc, char** argv) {
             sleep_ms(2000);
 
             if (am_i_child) {
-                    exit(QUIT_GAME);
+                exit(QUIT_GAME);
             }
 
             end_game = true;
@@ -257,7 +261,7 @@ int main(int argc, char** argv) {
 
         print_board(&game_board);
     }    
-    
+    // Cleanup
     terminal_cleanup();
     unload_level(&game_board);
 
