@@ -8,7 +8,7 @@ TEMPO 15
 # PAC 3.p
 #MON: monstros
 # Usa o monstro 1 (comportamento padrão) e o 3 (que definirei abaixo)
-MON 1.m 4.m
+MON 1.m 3.m
 # O mapa desenhado em espiral com o portal (@) no centro
 XXXXXXXXXX
 XooooooooX
