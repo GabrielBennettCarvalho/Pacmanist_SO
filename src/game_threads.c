@@ -10,14 +10,14 @@ void start_threads(
     board_t *board,
     pthread_mutex_t *board_mutex,
     bool *keep_running,
-    pthread_t *ui_thread, //guardar o id da thread ui
-    pthread_t *pacman_thread, //guardar o id da thread pacman
-    pthread_t *monster_threads //guardar os ids das threads monstros     
+    pthread_t *ui_thread, 
+    pthread_t *pacman_thread, 
+    pthread_t *monster_threads 
 ) {
 
     *keep_running = true;
 
-    //para não acabarem quando a função acabar
+    // Static so their lifespan isn't the same as this function
     static thread_args_t ui_args;
     static thread_args_t pacman_args;
     static thread_args_t monster_args[MAX_GHOSTS];
@@ -26,17 +26,14 @@ void start_threads(
     pacman_args.game_board = board;
     pacman_args.board_mutex = board_mutex;
     pacman_args.keep_running = keep_running;
-    //pacman_args.entity_id = 0;
 
-    // Configurar argumentos da thread UI
+    
     ui_args.game_board = board;
     ui_args.board_mutex = board_mutex;
     ui_args.keep_running = keep_running;
-    //ui_args.entity_id = -1; // UI thread id
 
     pthread_create(ui_thread, NULL, ui_thread_func, &ui_args);
 
-    //lançar thread do pacman
     pthread_create(pacman_thread, NULL, pacman_thread_func, &pacman_args);
 
     for (int i = 0; i < board->n_ghosts; i++) {
@@ -47,7 +44,6 @@ void start_threads(
         
         monster_args[i].entity_id = i;
 
-        // Create monster thread ####talvez mudar o nome para moster_threads[i]#####
         pthread_create(&monster_threads[i], NULL, monster_thread_func, &monster_args[i]);
 
     }
@@ -61,22 +57,18 @@ void stop_threads(
     pthread_t *monster_threads, 
     int n_ghosts,
     bool *keep_running
-    //pthread_mutex_t *board_mutex
 ) {
 
     // Might be redundant, but this way we guarantee the other threads stop 
     // in case main didn't change this flag
     *keep_running = false;
 
-    // Esperar pela Thread do pacman
     pthread_join(pacman_thread, NULL);
 
-    // Esperar pelas threads dos Monstros
     for (int i = 0; i < n_ghosts; i++) {
         pthread_join(monster_threads[i], NULL);
     }
 
-    // Esperar pela Thread da UI
     pthread_join(ui_thread, NULL);
 
 }
@@ -108,6 +100,7 @@ void *monster_thread_func(void *arg) {
 
         int result = move_ghost(board, id, next_move);
 
+        // Stop and warn everything else that the pacman has died
         if (result == DEAD_PACMAN) {
             *keep_running = false;
             board->exit_status = PACMAN_DIED;
@@ -140,10 +133,10 @@ void *pacman_thread_func(void *arg) {
 
         pthread_mutex_lock(mutex);
 
-        // Second check to impede race conditions
+        // Second check to keep race conditions from happening
         if (!*keep_running || !pacman->alive) {
         pthread_mutex_unlock(mutex);
-        break; // leave loop
+        break;
         }
 
 

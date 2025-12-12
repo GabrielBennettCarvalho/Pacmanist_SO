@@ -1,19 +1,12 @@
-#DIM: dimensões da matriz do nível
-# 10 colunas por 8 linhas
 DIM 10 8
-#TEMPO: indica a duração de cada jogada em milissegundos
-# Um pouco mais rápido que os anteriores (15ms)
 TEMPO 15
-# PAC: (opcional)
-# PAC 3.p
-#MON: monstros
-# Usa o monstro 1 (comportamento padrão) e o 3 (que definirei abaixo)
-MON 1.m 4.m
-# O mapa desenhado em espiral com o portal (@) no centro
+
+MON 1.m 3.m
+
 XXXXXXXXXX
 XooooooooX
 XoXXXXXXoX
-XooooooXoX
+XooooooooX
 XoXo@XXXoX
 XoXXXXXXoX
 XooooooooX
