@@ -114,6 +114,9 @@ int main(int argc, char** argv) {
     int accumulated_points = 0;
     bool end_game = false;
     board_t game_board;
+    // Zero out the memory to remove "garbage"
+    memset(&game_board, 0, sizeof(board_t));
+    
     int status;
     int result;
     bool am_i_child = false;
