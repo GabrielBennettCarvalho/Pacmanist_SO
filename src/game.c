@@ -83,7 +83,10 @@ int main(int argc, char** argv) {
 
     if (argc != 2) {
         printf("Usage: %s <level_directory>\n", argv[0]);
-        scanf("%255s", path);
+       // Try to read the string
+        if (scanf("%255s", path) != 1) {
+        return 1; 
+        }   
     } else {
         // If argc == 2, we MUST copy argv[1] into the path variable
         strcpy(path, argv[1]); 
