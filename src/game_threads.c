@@ -17,8 +17,7 @@ void start_threads(
 
     *keep_running = true;
 
-    // Static variables ensure these structures persist in memory after the function returns,
-    // preventing data corruption when threads access them later.
+    //para não acabarem quando a função acabar
     static thread_args_t ui_args;
     static thread_args_t pacman_args;
     static thread_args_t monster_args[MAX_GHOSTS];
@@ -27,15 +26,17 @@ void start_threads(
     pacman_args.game_board = board;
     pacman_args.board_mutex = board_mutex;
     pacman_args.keep_running = keep_running;
+    //pacman_args.entity_id = 0;
 
-    // Configure UI thread arguments
+    // Configurar argumentos da thread UI
     ui_args.game_board = board;
     ui_args.board_mutex = board_mutex;
     ui_args.keep_running = keep_running;
+    //ui_args.entity_id = -1; // UI thread id
 
     pthread_create(ui_thread, NULL, ui_thread_func, &ui_args);
 
-    // Launch Pacman thread
+    //lançar thread do pacman
     pthread_create(pacman_thread, NULL, pacman_thread_func, &pacman_args);
 
     for (int i = 0; i < board->n_ghosts; i++) {
@@ -46,7 +47,7 @@ void start_threads(
         
         monster_args[i].entity_id = i;
 
-        // Create monster thread. Note: iterating through the array using pointer arithmetic.
+        // Create monster thread ####talvez mudar o nome para moster_threads[i]#####
         pthread_create(&monster_threads[i], NULL, monster_thread_func, &monster_args[i]);
 
     }
@@ -60,27 +61,28 @@ void stop_threads(
     pthread_t *monster_threads, 
     int n_ghosts,
     bool *keep_running
+    //pthread_mutex_t *board_mutex
 ) {
 
     // Might be redundant, but this way we guarantee the other threads stop 
     // in case main didn't change this flag
     *keep_running = false;
 
-    // Wait for the Pacman thread to finish
+    // Esperar pela Thread do pacman
     pthread_join(pacman_thread, NULL);
 
-    // Wait for all Monster threads to finish
+    // Esperar pelas threads dos Monstros
     for (int i = 0; i < n_ghosts; i++) {
         pthread_join(monster_threads[i], NULL);
     }
 
-    // Wait for the UI thread to finish
+    // Esperar pela Thread da UI
     pthread_join(ui_thread, NULL);
 
 }
 
 void *monster_thread_func(void *arg) {
-    // Cast argument to the correct struct type
+    // cast
     thread_args_t *args = (thread_args_t*)arg;
 
     board_t *board = args->game_board;
@@ -93,17 +95,15 @@ void *monster_thread_func(void *arg) {
     // Pointer so it updates "in real time" and it ain't a copy.
     while (*keep_running) {
 
-        // Critical Section start
+        // Critical Section
         pthread_mutex_lock(mutex);
 
         // In case the user quits while this thread is inside the lock
-        // This double-check prevents processing a move after the game has ended.
         if (!*keep_running) {
             pthread_mutex_unlock(mutex);
             break;
         }
 
-        // Get the next move using modulo to cycle through the move list
         command_t *next_move = &ghost->moves[ghost->current_move%ghost->n_moves];
 
         int result = move_ghost(board, id, next_move);
@@ -116,7 +116,6 @@ void *monster_thread_func(void *arg) {
         }
 
         pthread_mutex_unlock(mutex);
-        // Critical Section End
 
         if (*keep_running == false) break;
 
@@ -141,7 +140,7 @@ void *pacman_thread_func(void *arg) {
 
         pthread_mutex_lock(mutex);
 
-        // Second check to impede race conditions or moving a dead pacman
+        // Second check to impede race conditions
         if (!*keep_running || !pacman->alive) {
         pthread_mutex_unlock(mutex);
         break; // leave loop
@@ -151,19 +150,18 @@ void *pacman_thread_func(void *arg) {
         command_t *play;
         c.command = board->next_user_move;
         if (pacman->n_moves == 0) { // if is user input
-            // Clean input
-            board->next_user_move = '\0';
-            if(c.command == '\0') {
-                // No input available, release lock and wait a bit
-                pthread_mutex_unlock(mutex);
-                sleep_ms(10);
-                continue;
-            }
-            c.turns = 1;
-            play = &c;
+        // Clean input
+        board->next_user_move = '\0';
+        if(c.command == '\0') {
+            pthread_mutex_unlock(mutex);
+            sleep_ms(10);
+            continue;
+        }
 
-        } else { 
-            // Automatic replay/pre-defined moves mode
+        c.turns = 1;
+        play = &c;
+        }
+        else { 
             play = &pacman->moves[pacman->current_move%pacman->n_moves];
 
             if (play->command == 'Q') {
@@ -178,7 +176,7 @@ void *pacman_thread_func(void *arg) {
                 if (board->can_save) {
                     board->exit_status = CREATE_BACKUP;
                     *keep_running = false; // Stop threads only if valid
-                    pacman->current_move++; // Advance move index so we don't repeat 'G' on resume
+                    pacman->current_move++;
                     pthread_mutex_unlock(mutex);
                     break;
                 } 
@@ -196,7 +194,7 @@ void *pacman_thread_func(void *arg) {
         int result = move_pacman(board, 0, play);
 
 
-        // in case the pacman kills himself by moving into a ghost
+        // in case the pacman kills himself
         if (result == DEAD_PACMAN) {
             *keep_running = false;
             board->exit_status = PACMAN_DIED; 
@@ -204,7 +202,6 @@ void *pacman_thread_func(void *arg) {
             break;
         }
         if (result == REACHED_PORTAL) {
-            //keep_running = false;
             board->exit_status = NEXT_LEVEL;
             pthread_mutex_unlock(mutex);
             break;

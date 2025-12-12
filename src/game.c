@@ -178,7 +178,6 @@ int main(int argc, char** argv) {
                 end_game = true; // Fatal error, Fork failed
             } 
             else if (pid > 0) {
-                // --- PARENT PROCESS ---
                 // The parent waits here. It acts as the "Restore Point".
                 wait(&status);
 
@@ -249,8 +248,6 @@ int main(int argc, char** argv) {
             end_game = true;
             break;
         }
-        // If loop ends without continue, cleanup
-        //if (reload_level) unload_level(&game_board);
 
         print_board(&game_board);
     }    
