@@ -332,14 +332,29 @@ void kill_pacman(board_t* board, int pacman_index) {
     pac->alive = 0;
 }
 
-// Static Loading
 int load_pacman(board_t* board, int points) {
-    board->board[1 * board->width + 1].content = 'P'; // Pacman
-    board->pacmans[0].pos_x = 1;
-    board->pacmans[0].pos_y = 1;
-    board->pacmans[0].alive = 1;
-    board->pacmans[0].points = points;
-    return 0;
+    int board_dim = board->width * board->height;
+    
+    // In case there's no .p file: We find the first empty position
+    for (int i = 0; i < board_dim; i++) {
+        
+        // Check if there's a wall, a portal or a monster
+        if (board->board[i].content != 'W' && 
+            !board->board[i].has_portal && 
+            board->board[i].content != 'M') {
+            
+            board->board[i].content = 'P'; 
+            
+            board->pacmans[0].pos_x = i % board->width; 
+            board->pacmans[0].pos_y = i / board->width;
+
+            board->pacmans[0].alive = 1;
+            board->pacmans[0].points = points;
+            
+            return 0; 
+        }
+    }
+    return -1; 
 }
 
 // Static Loading
@@ -412,9 +427,25 @@ int load_level(board_t *board, int points) {
 }
 
 void unload_level(board_t * board) {
-    free(board->board);
-    free(board->pacmans);
-    free(board->ghosts);
+
+    // Since we unload the level every time we go to the next one
+    // On the last one the while loop in main breaks and then this function is called again
+    // So we point the board parameters to null to stop double frees
+    
+    if (board->board != NULL) {
+        free(board->board);
+        board->board = NULL;
+    }
+
+    if (board->pacmans != NULL) {
+        free(board->pacmans);
+        board->pacmans = NULL;
+    }
+
+    if (board->ghosts != NULL) {
+        free(board->ghosts);
+        board->ghosts = NULL;
+    }
 }
 
 void open_debug_file(char *filename) {

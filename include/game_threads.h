@@ -19,8 +19,7 @@ void start_threads(
     bool *keep_running, 
     pthread_t *ui_thread, 
     pthread_t *pacman_thread, 
-    pthread_t *monster_threads, 
-    thread_args_t *monster_args
+    pthread_t *monster_threads
 );
 
 void stop_threads(
@@ -28,8 +27,7 @@ void stop_threads(
     pthread_t pacman_thread, 
     pthread_t *monster_threads, 
     int n_ghosts, 
-    bool *keep_running,
-    pthread_mutex_t *board_mutex
+    bool *keep_running
 );
 
 
